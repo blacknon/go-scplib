@@ -1,11 +1,13 @@
 package scplib
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -137,26 +139,71 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 	// New Session
 	session, err := s.Connect.NewSession()
 	if err != nil {
-		return err
+		return
 	}
 	defer session.Close()
 
 	// File or Dir exits check
 	pInfo, err := os.Stat(fromPath)
 	if err != nil {
-		return err
+		return
 	}
 
-	//writeBuffer := &bytes.Buffer{}
+	// Read Dir or File
+	go func() {
+		w, _ := session.StdinPipe()
+		defer w.Close()
+
+		if pInfo.IsDir() {
+			pList, _ := conf.PathWalkDir(fromPath)
+			for _, i := range pList {
+				data := dirData(fromPath, i, filepath.Base(i))
+				if len(data) > 0 {
+					fmt.Fprintf(w, data)
+				}
+			}
+		} else {
+			fPerm := "0644"
+			content, err := ioutil.ReadFile(fromPath)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			fmt.Fprintln(w, "C"+fPerm, len(content), toPath)
+			fmt.Fprint(w, string(content))
+			fmt.Fprint(w, "\x00")
+		}
+	}()
+
+	if err := session.Run("/usr/bin/scp -ptr " + toPath); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+	}
+
+	return
+}
+
+//func (s *SCPClient) GetRemoteDataString(Path string) (getData string, err error) {
+//
+//}
+
+// Return local data return scp format
+func (s *SCPClient) GetLocalDataString(fromPath string, toPath string) (getData string, err error) {
+	// Get full path
+	fromPath = getFullPath(fromPath)
+
+	// File or Dir exits check
+	pInfo, err := os.Stat(fromPath)
+	if err != nil {
+		return
+	}
+
+	w := bytes.Buffer{}
 	// Read Dir or File
 	if pInfo.IsDir() {
 		pList, _ := conf.PathWalkDir(fromPath)
 		for _, i := range pList {
 			data := dirData(fromPath, i, filepath.Base(i))
 			if len(data) > 0 {
-				//writeBuffer.WriteString(data)
-				//fmt.Fprintf(w, scpData)
-				fmt.Printf(data)
+				w.WriteString(data)
 			}
 		}
 	} else {
@@ -165,32 +212,14 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
-
-		//writeBuffer.WriteString("C" + fPerm)
-		//writeBuffer.WriteString(len(content))
-		//writeBuffer.WriteString(toPath)
-
-		//fmt.Fprintln(w, "C"+fPerm, len(content), toName)
-		//fmt.Fprint(w, string(content))
-		//fmt.Fprint(w, "\x00")
-		fmt.Println("C"+fPerm, len(content), toPath)
-		fmt.Printf(string(content))
-		fmt.Printf("\x00")
+		w.WriteString("C" + fPerm + " " + strconv.Itoa(len(content)) + " " + toPath + "\n")
+		w.WriteString(string(content))
+		w.WriteString("\x00")
 	}
 
-	//go func() {
-	//	w, _ := session.StdinPipe()
-	//	defer w.Close()
-	//
-	//}()
-
-	//fmt.Println(string(writeBuffer))
+	getData = w.String()
 	return
 }
-
-//func (s *SCPClient) GetData(fromPath) (getData string, err error) {
-//
-//}
 
 //func (s *SCPClient) PutData(fromData string, toPath string) (err error) {
 //
