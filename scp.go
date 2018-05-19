@@ -22,6 +22,13 @@ type SCPClient struct {
 	Connect *ssh.Client
 }
 
+func unset(s []string, i int) []string {
+	if i >= len(s) {
+		return s
+	}
+	return append(s[:i], s[i+1:]...)
+}
+
 func getFullPath(path string) (fullPath string) {
 	usr, _ := user.Current()
 	fullPath = strings.Replace(path, "~", usr.HomeDir, 1)
@@ -80,7 +87,8 @@ func dirData(baseDir string, path string, toName string) (scpData string) {
 	return
 }
 
-func (s *SCPClinet) CreateConnect() (conn *ssh.Client, err error) {
+//func (s *SCPClient) CreateConnect() (conn *ssh.Client, err error) {
+func (s *SCPClient) CreateConnect() (err error) {
 	usr, _ := user.Current()
 	auth := []ssh.AuthMethod{}
 	if s.KeyPath != "" {
@@ -109,22 +117,25 @@ func (s *SCPClinet) CreateConnect() (conn *ssh.Client, err error) {
 	}
 
 	// New connect
-	conn, err = ssh.Dial("tcp", s.Addr+":"+s.Port, config)
+	conn, err := ssh.Dial("tcp", s.Addr+":"+s.Port, config)
+	s.Connect = conn
 	return
 }
 
-func (s *SCPClinet) GetFile(fromPath string, toPath string) (err error) {
+// Remote to Local get file
+//func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
+//
+//}
 
-}
+// Local to Remote put file
+func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
+	defer s.Connect.Close()
 
-func (s *SCPClinet) PutFile(fromPath string, toPath string) (err error) {
 	// Get full path
 	fromPath = getFullPath(fromPath)
 
-	defer s.SCPClient.Close()
-
 	// New Session
-	session, err := s.SCPClient.NewSession()
+	session, err := s.Connect.NewSession()
 	if err != nil {
 		return err
 	}
@@ -136,13 +147,16 @@ func (s *SCPClinet) PutFile(fromPath string, toPath string) (err error) {
 		return err
 	}
 
+	//writeBuffer := &bytes.Buffer{}
 	// Read Dir or File
 	if pInfo.IsDir() {
 		pList, _ := conf.PathWalkDir(fromPath)
 		for _, i := range pList {
 			data := dirData(fromPath, i, filepath.Base(i))
 			if len(data) > 0 {
-				fmt.Fprintf(w, scpData)
+				//writeBuffer.WriteString(data)
+				//fmt.Fprintf(w, scpData)
+				fmt.Printf(data)
 			}
 		}
 	} else {
@@ -151,22 +165,33 @@ func (s *SCPClinet) PutFile(fromPath string, toPath string) (err error) {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
-		fmt.Fprintln(w, "C"+fPerm, len(content), toName)
-		fmt.Fprint(w, string(content))
-		fmt.Fprint(w, "\x00")
+
+		//writeBuffer.WriteString("C" + fPerm)
+		//writeBuffer.WriteString(len(content))
+		//writeBuffer.WriteString(toPath)
+
+		//fmt.Fprintln(w, "C"+fPerm, len(content), toName)
+		//fmt.Fprint(w, string(content))
+		//fmt.Fprint(w, "\x00")
+		fmt.Println("C"+fPerm, len(content), toPath)
+		fmt.Printf(string(content))
+		fmt.Printf("\x00")
 	}
 
-	go func() {
-		w, _ := session.StdinPipe()
-		defer w.Close()
+	//go func() {
+	//	w, _ := session.StdinPipe()
+	//	defer w.Close()
+	//
+	//}()
 
-	}()
+	//fmt.Println(string(writeBuffer))
+	return
 }
 
-func (s *SCPClinet) GetData(fromPath) (getData string, err error) {
+//func (s *SCPClient) GetData(fromPath) (getData string, err error) {
+//
+//}
 
-}
-
-func (s *SCPClinet) PutData(fromData string, toPath string) (err error) {
-
-}
+//func (s *SCPClient) PutData(fromData string, toPath string) (err error) {
+//
+//}
