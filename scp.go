@@ -49,10 +49,7 @@ func walkDir(dir string) (files []string, err error) {
 	return
 }
 
-func dirData(baseDir string, path string, toName string) (scpData string) {
-	dPerm := "0755"
-	fPerm := "0644"
-
+func dirData(baseDir string, path string, toName string) (data string) {
 	buf := []string{}
 
 	// baseDirだと親ディレクトリ配下のみを転送するため、一度配列化して親ディレクトリも転送対象にする
@@ -65,7 +62,11 @@ func dirData(baseDir string, path string, toName string) (scpData string) {
 
 	if len(dir) > 0 && dir != "." {
 		dirList := strings.Split(dir, "/")
+		dirpath := baseDir
 		for _, dirName := range dirList {
+			dirpath = dirpath + "/" + dirName
+			dInfo, _ := os.Stat(dirpath)
+			dPerm := fmt.Sprintf("%04o", dInfo.Mode().Perm())
 			buf = append(buf, fmt.Sprintln("D"+dPerm, 0, dirName))
 		}
 	}
@@ -77,17 +78,25 @@ func dirData(baseDir string, path string, toName string) (scpData string) {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
+
+		fPerm := fmt.Sprintf("%04o", fInfo.Mode())
 		buf = append(buf, fmt.Sprintln("C"+fPerm, len(content), toName))
 		buf = append(buf, fmt.Sprintf(string(content)))
 		buf = append(buf, fmt.Sprintf("\x00"))
 	}
 
 	if len(dir) > 0 && dir != "." {
-		buf = append(buf, fmt.Sprintln("E"))
+		dirList := strings.Split(dir, "/")
+		end_str := strings.Repeat("E\n", len(dirList))
+		buf = append(buf, end_str)
 	}
-	scpData = strings.Join(buf, "")
+	data = strings.Join(buf, "")
 	return
 }
+
+//func writeData(strings) {
+//
+//}
 
 //func (s *SCPClient) CreateConnect() (conn *ssh.Client, err error) {
 func (s *SCPClient) CreateConnect() (err error) {
@@ -125,9 +134,45 @@ func (s *SCPClient) CreateConnect() (err error) {
 }
 
 // Remote to Local get file
-//func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
-//
-//}
+func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
+	defer s.Connect.Close()
+
+	// New Session
+	session, err := s.Connect.NewSession()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
+	}
+	defer session.Close()
+
+	fin := make(chan bool)
+	go func() {
+		w, _ := session.StdinPipe()
+
+		defer w.Close()
+
+		// Null Characters(10,000)
+		nc := strings.Repeat("\x00", 10000)
+		fmt.Fprintf(w, nc)
+	}()
+
+	go func() {
+		r, _ := session.StdoutPipe()
+		b, _ := ioutil.ReadAll(r)
+		// 処理データをここで渡す？メモリに書き出すのは大きいファイル処理時にメモリを食い過ぎるので、パイプから直接書き出したい
+		// また、処理時に名称切り替えに対応する必要があるので、それも考慮する
+		fmt.Println(string(b))
+		fin <- true
+	}()
+
+	if err := session.Run("/usr/bin/scp -rqf " + fromPath); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+	}
+
+	<-fin
+
+	fmt.Println(toPath)
+	return
+}
 
 // Local to Remote put file
 func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
@@ -163,7 +208,9 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 				}
 			}
 		} else {
-			fPerm := "0644"
+			toPath = filepath.Base(toPath)
+
+			fPerm := fmt.Sprintf("%04o", pInfo.Mode())
 			content, err := ioutil.ReadFile(fromPath)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -208,6 +255,7 @@ func (s *SCPClient) GetLocalDataString(fromPath string, toPath string) (getData 
 		}
 	} else {
 		fPerm := "0644"
+		toPath = filepath.Base(toPath)
 		content, err := ioutil.ReadFile(fromPath)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -217,6 +265,7 @@ func (s *SCPClient) GetLocalDataString(fromPath string, toPath string) (getData 
 		w.WriteString("\x00")
 	}
 
+	// nil charが出てきてしまうので、対応が必要
 	getData = w.String()
 	return
 }
