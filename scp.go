@@ -169,8 +169,6 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 	}
 
 	<-fin
-
-	fmt.Println(toPath)
 	return
 }
 
@@ -210,11 +208,16 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 		} else {
 			toPath = filepath.Base(toPath)
 
+			// get file permission
 			fPerm := fmt.Sprintf("%04o", pInfo.Mode())
+
+			// get contents data
 			content, err := ioutil.ReadFile(fromPath)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
+
+			// print scp format data
 			fmt.Fprintln(w, "C"+fPerm, len(content), toPath)
 			fmt.Fprint(w, string(content))
 			fmt.Fprint(w, "\x00")
@@ -224,7 +227,6 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 	if err := session.Run("/usr/bin/scp -ptr " + toPath); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
 	}
-
 	return
 }
 
