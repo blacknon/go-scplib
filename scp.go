@@ -1,17 +1,16 @@
 package scplib
 
 import (
-	"bytes"
+	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/blacknon/lssh/conf"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -49,9 +48,7 @@ func walkDir(dir string) (files []string, err error) {
 	return
 }
 
-func dirData(baseDir string, path string, toName string) (data string) {
-	buf := []string{}
-
+func pushDirData(w io.WriteCloser, baseDir string, path string, toName string) {
 	// baseDirだと親ディレクトリ配下のみを転送するため、一度配列化して親ディレクトリも転送対象にする
 	baseDirSlice := strings.Split(baseDir, "/")
 	baseDirSlice = unset(baseDirSlice, len(baseDirSlice)-1)
@@ -67,36 +64,85 @@ func dirData(baseDir string, path string, toName string) (data string) {
 			dirpath = dirpath + "/" + dirName
 			dInfo, _ := os.Stat(dirpath)
 			dPerm := fmt.Sprintf("%04o", dInfo.Mode().Perm())
-			buf = append(buf, fmt.Sprintln("D"+dPerm, 0, dirName))
+
+			// push directory infomation
+			fmt.Fprintln(w, "D"+dPerm, 0, dirName)
 		}
 	}
 
 	fInfo, _ := os.Stat(path)
 
 	if !fInfo.IsDir() {
-		content, err := ioutil.ReadFile(path)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		}
-
-		fPerm := fmt.Sprintf("%04o", fInfo.Mode())
-		buf = append(buf, fmt.Sprintln("C"+fPerm, len(content), toName))
-		buf = append(buf, fmt.Sprintf(string(content)))
-		buf = append(buf, fmt.Sprintf("\x00"))
+		pushFileData(w, path, toName)
 	}
 
 	if len(dir) > 0 && dir != "." {
 		dirList := strings.Split(dir, "/")
 		end_str := strings.Repeat("E\n", len(dirList))
-		buf = append(buf, end_str)
+		fmt.Fprintf(w, end_str)
 	}
-	data = strings.Join(buf, "")
 	return
 }
 
-//func writeData(strings) {
-//
-//}
+func pushFileData(w io.WriteCloser, path string, toName string) {
+	content, err := os.Open(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+
+	stat, _ := content.Stat()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+
+	fInfo, _ := os.Stat(path)
+	fPerm := fmt.Sprintf("%04o", fInfo.Mode())
+
+	// push file infomation
+	fmt.Fprintln(w, "C"+fPerm, stat.Size(), toName)
+	io.Copy(w, content)
+	fmt.Fprint(w, "\x00")
+
+	return
+}
+
+func writeData(data *bufio.Reader, path string) {
+checkloop:
+	for {
+		// Get file or dir infomation (1st line)
+		line, err := data.ReadString('\n')
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Println(err)
+		}
+
+		line = strings.TrimRight(line, "\n")
+		line_slice := strings.SplitN(line, " ", 3)
+
+		scpType := line_slice[0][:1]
+		scpPerm := line_slice[0][1:]
+		scpSize := line_slice[1]
+		scpFilename := line_slice[2]
+
+		switch {
+		case scpType == "C":
+			fmt.Println("file")
+			fmt.Println(scpType, scpPerm, scpSize, scpFilename)
+			break checkloop
+		case scpType == "D":
+			fmt.Println("dir")
+			fmt.Println(scpType, scpPerm, scpSize, scpFilename)
+			break checkloop
+		default:
+			fmt.Println(line)
+			break checkloop
+		}
+	}
+	return
+}
 
 //func (s *SCPClient) CreateConnect() (conn *ssh.Client, err error) {
 func (s *SCPClient) CreateConnect() (err error) {
@@ -147,7 +193,6 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 	fin := make(chan bool)
 	go func() {
 		w, _ := session.StdinPipe()
-
 		defer w.Close()
 
 		// Null Characters(10,000)
@@ -157,22 +202,19 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 
 	go func() {
 		r, _ := session.StdoutPipe()
-		b, _ := ioutil.ReadAll(r)
-		// 処理データをここで渡す？メモリに書き出すのは大きいファイル処理時にメモリを食い過ぎるので、パイプから直接書き出したい
-		// また、処理時に名称切り替えに対応する必要があるので、それも考慮する
-		fmt.Println(string(b))
+		b := bufio.NewReader(r)
+		writeData(b, toPath)
+
 		fin <- true
 	}()
 
-	if err := session.Run("/usr/bin/scp -rqf " + fromPath); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
-	}
-
+	err = session.Run("/usr/bin/scp -rqf '" + fromPath + "'")
 	<-fin
 	return
 }
 
 // Local to Remote put file
+// 20180523 どうも.gitとかがあるとコケる様子。チェックして対応を実施すること！(備忘録)
 func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 	defer s.Connect.Close()
 
@@ -198,35 +240,23 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 		defer w.Close()
 
 		if pInfo.IsDir() {
-			pList, _ := conf.PathWalkDir(fromPath)
+			// Directory
+			pList, _ := walkDir(fromPath)
 			for _, i := range pList {
-				data := dirData(fromPath, i, filepath.Base(i))
-				if len(data) > 0 {
-					fmt.Fprintf(w, data)
-				}
+				pushDirData(w, fromPath, i, filepath.Base(i))
 			}
 		} else {
-			toPath = filepath.Base(toPath)
-
-			// get file permission
-			fPerm := fmt.Sprintf("%04o", pInfo.Mode())
-
-			// get contents data
-			content, err := ioutil.ReadFile(fromPath)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
+			// single files
+			toFile := filepath.Base(toPath)
+			if toFile == "." {
+				toFile = filepath.Base(fromPath)
 			}
-
-			// print scp format data
-			fmt.Fprintln(w, "C"+fPerm, len(content), toPath)
-			fmt.Fprint(w, string(content))
-			fmt.Fprint(w, "\x00")
+			pushFileData(w, fromPath, toFile)
 		}
 	}()
 
-	if err := session.Run("/usr/bin/scp -ptr " + toPath); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
-	}
+	err = session.Run("/usr/bin/scp -ptr '" + toPath + "'")
+
 	return
 }
 
@@ -235,42 +265,9 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 //}
 
 // Return local data return scp format
-func (s *SCPClient) GetLocalDataString(fromPath string, toPath string) (getData string, err error) {
-	// Get full path
-	fromPath = getFullPath(fromPath)
-
-	// File or Dir exits check
-	pInfo, err := os.Stat(fromPath)
-	if err != nil {
-		return
-	}
-
-	w := bytes.Buffer{}
-	// Read Dir or File
-	if pInfo.IsDir() {
-		pList, _ := conf.PathWalkDir(fromPath)
-		for _, i := range pList {
-			data := dirData(fromPath, i, filepath.Base(i))
-			if len(data) > 0 {
-				w.WriteString(data)
-			}
-		}
-	} else {
-		fPerm := "0644"
-		toPath = filepath.Base(toPath)
-		content, err := ioutil.ReadFile(fromPath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		}
-		w.WriteString("C" + fPerm + " " + strconv.Itoa(len(content)) + " " + toPath + "\n")
-		w.WriteString(string(content))
-		w.WriteString("\x00")
-	}
-
-	// nil charが出てきてしまうので、対応が必要
-	getData = w.String()
-	return
-}
+// func (s *SCPClient) GetLocalDataString(fromPath string, toPath string) (err error) {
+//
+// }
 
 //func (s *SCPClient) PutData(fromData string, toPath string) (err error) {
 //
