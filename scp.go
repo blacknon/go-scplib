@@ -2,6 +2,7 @@ package scplib
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -127,7 +128,6 @@ func writeData(data *bufio.Reader, path string) {
 	pwd := path
 checkloop:
 	for {
-		fmt.Println(pwd)
 		// Get file or dir infomation (1st line)
 		line, err := data.ReadString('\n')
 
@@ -144,7 +144,6 @@ checkloop:
 				pwd_array = pwd_array[:len(pwd_array)-2]
 			}
 			pwd = strings.Join(pwd_array, "/") + "/"
-			fmt.Println(pwd)
 			continue
 		}
 
@@ -170,14 +169,11 @@ checkloop:
 
 			// read last nUll character
 			_, _ = data.ReadByte()
-
-			// break checkloop
 		case scpType == "D":
 			// Check pwd
 			check, _ := regexp.MatchString("/$", pwd)
 			if !check {
 				pwd = pwd + "/"
-				fmt.Println(pwd)
 			}
 
 			pwd = pwd + scpObjName + "/"
@@ -186,10 +182,8 @@ checkloop:
 				fmt.Fprintln(os.Stderr, err)
 				return
 			}
-
-			//break checkloop
 		default:
-			fmt.Println(line)
+			fmt.Fprintln(os.Stderr, line)
 			break checkloop
 		}
 	}
@@ -276,38 +270,39 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 	return
 }
 
-// func (s *SCPClient) GetData(Path string) (getData io.Writer, err error) {
-// 	defer s.Connect.Close()
+//func (s *SCPClient) GetData(fromPath string) (err error) {
+func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
+	defer s.Connect.Close()
 
-// 	// New Session
-// 	session, err := s.Connect.NewSession()
-// 	if err != nil {
-// 		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
-// 	}
-// 	defer session.Close()
+	// New Session
+	session, err := s.Connect.NewSession()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
+	}
+	defer session.Close()
 
-// 	fin := make(chan bool)
-// 	go func() {
-// 		w, _ := session.StdinPipe()
-// 		defer w.Close()
+	fin := make(chan bool)
+	go func() {
+		w, _ := session.StdinPipe()
+		defer w.Close()
 
-// 		// Null Characters(10,000)
-// 		nc := strings.Repeat("\x00", 100000)
-// 		fmt.Fprintf(w, nc)
-// 	}()
+		// Null Characters(10,000)
+		nc := strings.Repeat("\x00", 100000)
+		fmt.Fprintf(w, nc)
+	}()
 
-// 	go func() {
-// 		r, _ := session.StdoutPipe()
-// 		b := bufio.NewReader(r)
-// 		writeData(b, toPath)
+	buf := new(bytes.Buffer)
+	go func() {
+		r, _ := session.StdoutPipe()
+		buf.ReadFrom(r)
+		fin <- true
+	}()
 
-// 		fin <- true
-// 	}()
-
-// 	err = session.Run("/usr/bin/scp -rqf '" + fromPath + "'")
-// 	<-fin
-// 	return
-// }
+	err = session.Run("/usr/bin/scp -rqf '" + fromPath + "'")
+	<-fin
+	data = buf
+	return
+}
 
 //func (s *SCPClient) PutData(fromData string, toPath string) (err error) {
 //
