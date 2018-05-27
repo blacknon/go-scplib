@@ -180,7 +180,6 @@ checkloop:
 			err := os.Mkdir(pwd, os.FileMode(uint32(scpPerm32)))
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
-				return
 			}
 		default:
 			fmt.Fprintln(os.Stderr, line)
@@ -304,9 +303,28 @@ func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 	return
 }
 
-//func (s *SCPClient) PutData(fromData string, toPath string) (err error) {
-//
-//}
+func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
+	defer s.Connect.Close()
+
+	// New Session
+	session, err := s.Connect.NewSession()
+	if err != nil {
+		return
+	}
+	defer session.Close()
+
+	// Read Dir or File
+	go func() {
+		w, _ := session.StdinPipe()
+		defer w.Close()
+
+		w.Write(fromData.Bytes())
+	}()
+
+	err = session.Run("/usr/bin/scp -ptr '" + toPath + "'")
+
+	return
+}
 
 func (s *SCPClient) CreateConnect() (err error) {
 	usr, _ := user.Current()
