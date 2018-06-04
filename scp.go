@@ -166,6 +166,7 @@ checkloop:
 
 			fileData := readBytesAtSize(data, scpSize)
 			ioutil.WriteFile(scpPath, fileData, os.FileMode(uint32(scpPerm32)))
+			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
 
 			// read last nUll character
 			_, _ = data.ReadByte()
@@ -179,7 +180,8 @@ checkloop:
 			pwd = pwd + scpObjName + "/"
 			err := os.Mkdir(pwd, os.FileMode(uint32(scpPerm32)))
 			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
+				fmt.Println(err)
+				os.Chmod(pwd, os.FileMode(uint32(scpPerm32)))
 			}
 		default:
 			fmt.Fprintln(os.Stderr, line)
@@ -297,7 +299,7 @@ func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 		fin <- true
 	}()
 
-	err = session.Run("/usr/bin/scp -rqf '" + fromPath + "'")
+	err = session.Run("/usr/bin/scp -fp '" + fromPath + "'")
 	<-fin
 	data = buf
 	return
@@ -321,7 +323,7 @@ func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 		w.Write(fromData.Bytes())
 	}()
 
-	err = session.Run("/usr/bin/scp -ptr '" + toPath + "'")
+	err = session.Run("/usr/bin/scp -tp '" + toPath + "'")
 
 	return
 }
