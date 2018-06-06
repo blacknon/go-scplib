@@ -163,9 +163,6 @@ checkloop:
 			fileData := make([]byte, scpSize)
 			_, _ = data.Read(fileData)
 
-			fmt.Println(line)
-			fmt.Println(scpSize)
-			fmt.Println(fileData)
 			ioutil.WriteFile(scpPath, fileData, os.FileMode(uint32(scpPerm32)))
 			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
 
