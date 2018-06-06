@@ -18,12 +18,13 @@ import (
 )
 
 type SCPClient struct {
-	Addr    string
-	Port    string
-	User    string
-	Pass    string
-	KeyPath string
-	Connect *ssh.Client
+	Addr       string
+	Port       string
+	User       string
+	Pass       string
+	KeyPath    string
+	Connect    *ssh.Client
+	Permission bool
 }
 
 func unset(s []string, i int) []string {
@@ -31,19 +32,6 @@ func unset(s []string, i int) []string {
 		return s
 	}
 	return append(s[:i], s[i+1:]...)
-}
-
-func readBytesAtSize(data *bufio.Reader, byteSize int) (readData []byte) {
-	buff := make([]byte, byteSize)
-	for i := 0; i < byteSize; i++ {
-		readByte, err := data.ReadByte()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		}
-		buff = append(buff, readByte)
-	}
-	readData = buff
-	return
 }
 
 func getFullPath(path string) (fullPath string) {
@@ -64,7 +52,7 @@ func walkDir(dir string) (files []string, err error) {
 	return
 }
 
-func pushDirData(w io.WriteCloser, baseDir string, path string, toName string) {
+func pushDirData(w io.WriteCloser, baseDir string, path string, toName string, perm bool) {
 	// baseDirだと親ディレクトリ配下のみを転送するため、一度配列化して親ディレクトリも転送対象にする
 	baseDirSlice := strings.Split(baseDir, "/")
 	baseDirSlice = unset(baseDirSlice, len(baseDirSlice)-1)
@@ -89,7 +77,7 @@ func pushDirData(w io.WriteCloser, baseDir string, path string, toName string) {
 	fInfo, _ := os.Stat(path)
 
 	if !fInfo.IsDir() {
-		pushFileData(w, path, toName)
+		pushFileData(w, path, toName, perm)
 	}
 
 	if len(dir) > 0 && dir != "." {
@@ -100,7 +88,7 @@ func pushDirData(w io.WriteCloser, baseDir string, path string, toName string) {
 	return
 }
 
-func pushFileData(w io.WriteCloser, path string, toName string) {
+func pushFileData(w io.WriteCloser, path string, toName string, perm bool) {
 	content, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -114,7 +102,11 @@ func pushFileData(w io.WriteCloser, path string, toName string) {
 	}
 
 	fInfo, _ := os.Stat(path)
-	fPerm := fmt.Sprintf("%04o", fInfo.Mode())
+
+	fPerm := "0644"
+	if perm == true {
+		fPerm = fmt.Sprintf("%04o", fInfo.Mode())
+	}
 
 	// push file infomation
 	fmt.Fprintln(w, "C"+fPerm, stat.Size(), toName)
@@ -124,7 +116,7 @@ func pushFileData(w io.WriteCloser, path string, toName string) {
 	return
 }
 
-func writeData(data *bufio.Reader, path string) {
+func writeData(data *bufio.Reader, path string, perm bool) {
 	pwd := path
 checkloop:
 	for {
@@ -164,7 +156,16 @@ checkloop:
 				scpPath = pwd + scpObjName
 			}
 
-			fileData := readBytesAtSize(data, scpSize)
+			if perm == false {
+				scpPerm32, _ = strconv.ParseUint("0644", 8, 32)
+			}
+
+			fileData := make([]byte, scpSize)
+			_, _ = data.Read(fileData)
+
+			fmt.Println(line)
+			fmt.Println(scpSize)
+			fmt.Println(fileData)
 			ioutil.WriteFile(scpPath, fileData, os.FileMode(uint32(scpPerm32)))
 			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
 
@@ -175,6 +176,10 @@ checkloop:
 			check, _ := regexp.MatchString("/$", pwd)
 			if !check {
 				pwd = pwd + "/"
+			}
+
+			if perm == false {
+				scpPerm32, _ = strconv.ParseUint("0755", 8, 32)
 			}
 
 			pwd = pwd + scpObjName + "/"
@@ -207,7 +212,7 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		// Null Characters(10,000)
+		// Null Characters(100,000)
 		nc := strings.Repeat("\x00", 100000)
 		fmt.Fprintf(w, nc)
 	}()
@@ -215,12 +220,17 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 	go func() {
 		r, _ := session.StdoutPipe()
 		b := bufio.NewReader(r)
-		writeData(b, toPath)
+		writeData(b, toPath, s.Permission)
 
 		fin <- true
 	}()
 
-	err = session.Run("/usr/bin/scp -rqf '" + fromPath + "'")
+	// Create scp command
+	scpCmd := "/usr/bin/scp -fr '" + fromPath + "'"
+
+	// Run scp
+	err = session.Run(scpCmd)
+
 	<-fin
 	return
 }
@@ -254,7 +264,7 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 			// Directory
 			pList, _ := walkDir(fromPath)
 			for _, i := range pList {
-				pushDirData(w, fromPath, i, filepath.Base(i))
+				pushDirData(w, fromPath, i, filepath.Base(i), s.Permission)
 			}
 		} else {
 			// single files
@@ -262,11 +272,18 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 			if toFile == "." {
 				toFile = filepath.Base(fromPath)
 			}
-			pushFileData(w, fromPath, toFile)
+			pushFileData(w, fromPath, toFile, s.Permission)
 		}
 	}()
 
-	err = session.Run("/usr/bin/scp -ptr '" + toPath + "'")
+	// Create scp command
+	scpCmd := "/usr/bin/scp -tr '" + toPath + "'"
+	if s.Permission == true {
+		scpCmd = "/usr/bin/scp -ptr '" + toPath + "'"
+	}
+
+	// Run scp
+	err = session.Run(scpCmd)
 
 	return
 }
@@ -299,9 +316,15 @@ func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 		fin <- true
 	}()
 
-	err = session.Run("/usr/bin/scp -fp '" + fromPath + "'")
+	// Create scp command
+	scpCmd := "/usr/bin/scp -fr '" + fromPath + "'"
+
+	// Run scp
+	err = session.Run(scpCmd)
+
 	<-fin
 	data = buf
+
 	return
 }
 
@@ -323,7 +346,13 @@ func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 		w.Write(fromData.Bytes())
 	}()
 
-	err = session.Run("/usr/bin/scp -tp '" + toPath + "'")
+	// Create scp command
+	scpCmd := "/usr/bin/scp -tr '" + toPath + "'"
+	if s.Permission == true {
+		scpCmd = "/usr/bin/scp -ptr '" + toPath + "'"
+	}
+
+	err = session.Run(scpCmd)
 
 	return
 }
