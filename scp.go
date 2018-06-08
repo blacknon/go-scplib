@@ -12,18 +12,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 )
 
 type SCPClient struct {
-	Addr       string
-	Port       string
-	User       string
-	Pass       string
-	KeyPath    string
-	Connect    *ssh.Client
+	Session    *ssh.Session
 	Permission bool
 }
 
@@ -195,13 +189,7 @@ checkloop:
 
 // Remote to Local get file
 func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
-	defer s.Connect.Close()
-
-	// New Session
-	session, err := s.Connect.NewSession()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
-	}
+	session := s.Session
 	defer session.Close()
 
 	fin := make(chan bool)
@@ -234,17 +222,11 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 
 // Local to Remote put file
 func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
-	defer s.Connect.Close()
+	session := s.Session
+	defer session.Close()
 
 	// Get full path
 	fromPath = getFullPath(fromPath)
-
-	// New Session
-	session, err := s.Connect.NewSession()
-	if err != nil {
-		return
-	}
-	defer session.Close()
 
 	// File or Dir exits check
 	pInfo, err := os.Stat(fromPath)
@@ -287,13 +269,7 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 
 //func (s *SCPClient) GetData(fromPath string) (err error) {
 func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
-	defer s.Connect.Close()
-
-	// New Session
-	session, err := s.Connect.NewSession()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
-	}
+	session := s.Session
 	defer session.Close()
 
 	fin := make(chan bool)
@@ -326,13 +302,7 @@ func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 }
 
 func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
-	defer s.Connect.Close()
-
-	// New Session
-	session, err := s.Connect.NewSession()
-	if err != nil {
-		return
-	}
+	session := s.Session
 	defer session.Close()
 
 	// Read Dir or File
@@ -351,39 +321,5 @@ func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 
 	err = session.Run(scpCmd)
 
-	return
-}
-
-func (s *SCPClient) CreateConnect() (err error) {
-	usr, _ := user.Current()
-	auth := []ssh.AuthMethod{}
-	if s.KeyPath != "" {
-		s.KeyPath = strings.Replace(s.KeyPath, "~", usr.HomeDir, 1)
-		// Read PublicKey
-		buffer, b_err := ioutil.ReadFile(s.KeyPath)
-		if b_err != nil {
-			err = b_err
-			return
-		}
-		key, b_err := ssh.ParsePrivateKey(buffer)
-		if b_err != nil {
-			err = b_err
-			return
-		}
-		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
-	} else {
-		auth = []ssh.AuthMethod{ssh.Password(s.Pass)}
-	}
-
-	config := &ssh.ClientConfig{
-		User:            s.User,
-		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         60 * time.Second,
-	}
-
-	// New connect
-	conn, err := ssh.Dial("tcp", s.Addr+":"+s.Port, config)
-	s.Connect = conn
 	return
 }
