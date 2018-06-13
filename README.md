@@ -1,6 +1,8 @@
 go-scplib
 ====
 
-files copy over scp library.
+scp library for golang
+
+## Example
 
 

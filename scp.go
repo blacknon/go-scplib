@@ -12,18 +12,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 )
 
 type SCPClient struct {
-	Addr    string
-	Port    string
-	User    string
-	Pass    string
-	KeyPath string
-	Connect *ssh.Client
+	Session    *ssh.Session
+	Permission bool
 }
 
 func unset(s []string, i int) []string {
@@ -31,19 +26,6 @@ func unset(s []string, i int) []string {
 		return s
 	}
 	return append(s[:i], s[i+1:]...)
-}
-
-func readBytesAtSize(data *bufio.Reader, byteSize int) (readData []byte) {
-	buff := make([]byte, byteSize)
-	for i := 0; i < byteSize; i++ {
-		readByte, err := data.ReadByte()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		}
-		buff = append(buff, readByte)
-	}
-	readData = buff
-	return
 }
 
 func getFullPath(path string) (fullPath string) {
@@ -64,7 +46,7 @@ func walkDir(dir string) (files []string, err error) {
 	return
 }
 
-func pushDirData(w io.WriteCloser, baseDir string, path string, toName string) {
+func pushDirData(w io.WriteCloser, baseDir string, path string, toName string, perm bool) {
 	// baseDirだと親ディレクトリ配下のみを転送するため、一度配列化して親ディレクトリも転送対象にする
 	baseDirSlice := strings.Split(baseDir, "/")
 	baseDirSlice = unset(baseDirSlice, len(baseDirSlice)-1)
@@ -89,7 +71,7 @@ func pushDirData(w io.WriteCloser, baseDir string, path string, toName string) {
 	fInfo, _ := os.Stat(path)
 
 	if !fInfo.IsDir() {
-		pushFileData(w, path, toName)
+		pushFileData(w, path, toName, perm)
 	}
 
 	if len(dir) > 0 && dir != "." {
@@ -100,7 +82,7 @@ func pushDirData(w io.WriteCloser, baseDir string, path string, toName string) {
 	return
 }
 
-func pushFileData(w io.WriteCloser, path string, toName string) {
+func pushFileData(w io.WriteCloser, path string, toName string, perm bool) {
 	content, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -114,7 +96,11 @@ func pushFileData(w io.WriteCloser, path string, toName string) {
 	}
 
 	fInfo, _ := os.Stat(path)
-	fPerm := fmt.Sprintf("%04o", fInfo.Mode())
+
+	fPerm := "0644"
+	if perm == true {
+		fPerm = fmt.Sprintf("%04o", fInfo.Mode())
+	}
 
 	// push file infomation
 	fmt.Fprintln(w, "C"+fPerm, stat.Size(), toName)
@@ -124,7 +110,7 @@ func pushFileData(w io.WriteCloser, path string, toName string) {
 	return
 }
 
-func writeData(data *bufio.Reader, path string) {
+func writeData(data *bufio.Reader, path string, perm bool) {
 	pwd := path
 checkloop:
 	for {
@@ -164,8 +150,15 @@ checkloop:
 				scpPath = pwd + scpObjName
 			}
 
-			fileData := readBytesAtSize(data, scpSize)
+			if perm == false {
+				scpPerm32, _ = strconv.ParseUint("0644", 8, 32)
+			}
+
+			fileData := make([]byte, scpSize)
+			_, _ = data.Read(fileData)
+
 			ioutil.WriteFile(scpPath, fileData, os.FileMode(uint32(scpPerm32)))
+			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
 
 			// read last nUll character
 			_, _ = data.ReadByte()
@@ -176,10 +169,15 @@ checkloop:
 				pwd = pwd + "/"
 			}
 
+			if perm == false {
+				scpPerm32, _ = strconv.ParseUint("0755", 8, 32)
+			}
+
 			pwd = pwd + scpObjName + "/"
 			err := os.Mkdir(pwd, os.FileMode(uint32(scpPerm32)))
 			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
+				fmt.Println(err)
+				os.Chmod(pwd, os.FileMode(uint32(scpPerm32)))
 			}
 		default:
 			fmt.Fprintln(os.Stderr, line)
@@ -191,13 +189,7 @@ checkloop:
 
 // Remote to Local get file
 func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
-	defer s.Connect.Close()
-
-	// New Session
-	session, err := s.Connect.NewSession()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
-	}
+	session := s.Session
 	defer session.Close()
 
 	fin := make(chan bool)
@@ -205,7 +197,7 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		// Null Characters(10,000)
+		// Null Characters(100,000)
 		nc := strings.Repeat("\x00", 100000)
 		fmt.Fprintf(w, nc)
 	}()
@@ -213,29 +205,28 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 	go func() {
 		r, _ := session.StdoutPipe()
 		b := bufio.NewReader(r)
-		writeData(b, toPath)
+		writeData(b, toPath, s.Permission)
 
 		fin <- true
 	}()
 
-	err = session.Run("/usr/bin/scp -rqf '" + fromPath + "'")
+	// Create scp command
+	scpCmd := "/usr/bin/scp -fr '" + fromPath + "'"
+
+	// Run scp
+	err = session.Run(scpCmd)
+
 	<-fin
 	return
 }
 
 // Local to Remote put file
 func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
-	defer s.Connect.Close()
+	session := s.Session
+	defer session.Close()
 
 	// Get full path
 	fromPath = getFullPath(fromPath)
-
-	// New Session
-	session, err := s.Connect.NewSession()
-	if err != nil {
-		return
-	}
-	defer session.Close()
 
 	// File or Dir exits check
 	pInfo, err := os.Stat(fromPath)
@@ -252,7 +243,7 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 			// Directory
 			pList, _ := walkDir(fromPath)
 			for _, i := range pList {
-				pushDirData(w, fromPath, i, filepath.Base(i))
+				pushDirData(w, fromPath, i, filepath.Base(i), s.Permission)
 			}
 		} else {
 			// single files
@@ -260,24 +251,25 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 			if toFile == "." {
 				toFile = filepath.Base(fromPath)
 			}
-			pushFileData(w, fromPath, toFile)
+			pushFileData(w, fromPath, toFile, s.Permission)
 		}
 	}()
 
-	err = session.Run("/usr/bin/scp -ptr '" + toPath + "'")
+	// Create scp command
+	scpCmd := "/usr/bin/scp -tr '" + toPath + "'"
+	if s.Permission == true {
+		scpCmd = "/usr/bin/scp -ptr '" + toPath + "'"
+	}
+
+	// Run scp
+	err = session.Run(scpCmd)
 
 	return
 }
 
 //func (s *SCPClient) GetData(fromPath string) (err error) {
 func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
-	defer s.Connect.Close()
-
-	// New Session
-	session, err := s.Connect.NewSession()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
-	}
+	session := s.Session
 	defer session.Close()
 
 	fin := make(chan bool)
@@ -297,20 +289,20 @@ func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 		fin <- true
 	}()
 
-	err = session.Run("/usr/bin/scp -rqf '" + fromPath + "'")
+	// Create scp command
+	scpCmd := "/usr/bin/scp -fr '" + fromPath + "'"
+
+	// Run scp
+	err = session.Run(scpCmd)
+
 	<-fin
 	data = buf
+
 	return
 }
 
 func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
-	defer s.Connect.Close()
-
-	// New Session
-	session, err := s.Connect.NewSession()
-	if err != nil {
-		return
-	}
+	session := s.Session
 	defer session.Close()
 
 	// Read Dir or File
@@ -321,41 +313,13 @@ func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 		w.Write(fromData.Bytes())
 	}()
 
-	err = session.Run("/usr/bin/scp -ptr '" + toPath + "'")
-
-	return
-}
-
-func (s *SCPClient) CreateConnect() (err error) {
-	usr, _ := user.Current()
-	auth := []ssh.AuthMethod{}
-	if s.KeyPath != "" {
-		s.KeyPath = strings.Replace(s.KeyPath, "~", usr.HomeDir, 1)
-		// Read PublicKey
-		buffer, b_err := ioutil.ReadFile(s.KeyPath)
-		if b_err != nil {
-			err = b_err
-			return
-		}
-		key, b_err := ssh.ParsePrivateKey(buffer)
-		if b_err != nil {
-			err = b_err
-			return
-		}
-		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
-	} else {
-		auth = []ssh.AuthMethod{ssh.Password(s.Pass)}
+	// Create scp command
+	scpCmd := "/usr/bin/scp -tr '" + toPath + "'"
+	if s.Permission == true {
+		scpCmd = "/usr/bin/scp -ptr '" + toPath + "'"
 	}
 
-	config := &ssh.ClientConfig{
-		User:            s.User,
-		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         60 * time.Second,
-	}
+	err = session.Run(scpCmd)
 
-	// New connect
-	conn, err := ssh.Dial("tcp", s.Addr+":"+s.Port, config)
-	s.Connect = conn
 	return
 }
