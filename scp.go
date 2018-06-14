@@ -17,6 +17,7 @@ import (
 )
 
 type SCPClient struct {
+	Connection *ssh.Client
 	Session    *ssh.Session
 	Permission bool
 }
@@ -190,6 +191,12 @@ checkloop:
 // Remote to Local get file
 func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 	session := s.Session
+	if s.Connection != nil {
+		session, err = s.Connection.NewSession()
+		if err != nil {
+			return
+		}
+	}
 	defer session.Close()
 
 	fin := make(chan bool)
@@ -223,6 +230,12 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 // Local to Remote put file
 func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 	session := s.Session
+	if s.Connection != nil {
+		session, _ = s.Connection.NewSession()
+		if err != nil {
+			return
+		}
+	}
 	defer session.Close()
 
 	// Get full path
@@ -270,6 +283,12 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 //func (s *SCPClient) GetData(fromPath string) (err error) {
 func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 	session := s.Session
+	if s.Connection != nil {
+		session, _ = s.Connection.NewSession()
+		if err != nil {
+			return
+		}
+	}
 	defer session.Close()
 
 	fin := make(chan bool)
@@ -303,6 +322,12 @@ func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 
 func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 	session := s.Session
+	if s.Connection != nil {
+		session, _ = s.Connection.NewSession()
+		if err != nil {
+			return
+		}
+	}
 	defer session.Close()
 
 	// Read Dir or File
