@@ -47,8 +47,9 @@ func walkDir(dir string) (files []string, err error) {
 	return
 }
 
+// @brief:
+//    Write directory data.
 func pushDirData(w io.WriteCloser, baseDir string, path string, toName string, perm bool) {
-	// baseDirだと親ディレクトリ配下のみを転送するため、一度配列化して親ディレクトリも転送対象にする
 	baseDirSlice := strings.Split(baseDir, "/")
 	baseDirSlice = unset(baseDirSlice, len(baseDirSlice)-1)
 	baseDir = strings.Join(baseDirSlice, "/")
@@ -83,6 +84,8 @@ func pushDirData(w io.WriteCloser, baseDir string, path string, toName string, p
 	return
 }
 
+// @brief:
+//    Exchange local file data, to scp format
 func pushFileData(w io.WriteCloser, path string, toName string, perm bool) {
 	content, err := os.Open(path)
 	if err != nil {
@@ -111,6 +114,8 @@ func pushFileData(w io.WriteCloser, path string, toName string, perm bool) {
 	return
 }
 
+// @brief:
+//    Write to local file, from scp data.
 func writeData(data *bufio.Reader, path string, perm bool) {
 	pwd := path
 checkloop:
@@ -188,7 +193,9 @@ checkloop:
 	return
 }
 
-// Remote to Local get file
+// @brief:
+//    Remote to Local get file
+//    scp.GetFile("/From/Remote/Path","/To/Local/Path")
 func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 	session := s.Session
 	if s.Connection != nil {
@@ -227,7 +234,9 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 	return
 }
 
-// Local to Remote put file
+// @brief:
+//    Local to Remote put file
+//    scp.PutFile("/From/Local/Path","/To/Remote/Path")
 func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 	session := s.Session
 	if s.Connection != nil {
@@ -280,7 +289,11 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 	return
 }
 
-//func (s *SCPClient) GetData(fromPath string) (err error) {
+// @brief:
+//    Remote to Local get data
+//    scp.GetData("/path/remote/path")
+// @return:
+//    scp format data
 func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 	session := s.Session
 	if s.Connection != nil {
@@ -320,6 +333,9 @@ func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 	return
 }
 
+// @brief:
+//    Local to Remote put data
+//    scp.PutData("scp format data","/path/remote/path")
 func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 	session := s.Session
 	if s.Connection != nil {
