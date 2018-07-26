@@ -166,7 +166,6 @@ checkloop:
 			}
 
 			fileData := make([]byte, scpSize)
-			// println(len(fileData))
 			for {
 				readBuffer := make([]byte, scpSize)
 				readedSize, _ := data.Read(readBuffer)
