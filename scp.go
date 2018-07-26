@@ -166,11 +166,9 @@ checkloop:
 			}
 
 			fileData := make([]byte, scpSize)
-			// println(len(fileData))
 			for {
 				readBuffer := make([]byte, scpSize)
 				readedSize, _ := data.Read(readBuffer)
-				println(readedSize)
 
 				fileData = append(fileData, readBuffer...)
 				if readedSize == 0 {
