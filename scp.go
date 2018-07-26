@@ -164,18 +164,18 @@ checkloop:
 				scpPerm32, _ = strconv.ParseUint("0644", 8, 32)
 			}
 
-			fileData := make([]byte, scpSize)
+			fileData := []byte{}
 			for {
 				readBuffer := make([]byte, scpSize)
 				readedSize, _ := data.Read(readBuffer)
-
-				fileData = append(fileData, readBuffer...)
 				if readedSize == 0 {
 					break
 				}
+				readBuffer = readBuffer[:readedSize]
+				fileData = append(fileData, readBuffer...)
 			}
 
-			ioutil.WriteFile(scpPath, fileData, os.FileMode(uint32(scpPerm32)))
+			ioutil.WriteFile(scpPath, fileData[:scpSize], os.FileMode(uint32(scpPerm32)))
 			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
 
 			// read last nUll character
