@@ -130,12 +130,17 @@ checkloop:
 		}
 
 		line = strings.TrimRight(line, "\n")
+		println(line)
 		if line == "E" {
 			pwd_array := strings.Split(pwd, "/")
 			if len(pwd_array) > 0 {
 				pwd_array = pwd_array[:len(pwd_array)-2]
 			}
 			pwd = strings.Join(pwd_array, "/") + "/"
+			continue
+		}
+
+		if line == "\x00" {
 			continue
 		}
 
@@ -161,7 +166,17 @@ checkloop:
 			}
 
 			fileData := make([]byte, scpSize)
-			_, _ = data.Read(fileData)
+			// println(len(fileData))
+			for {
+				readBuffer := make([]byte, scpSize)
+				readedSize, _ := data.Read(readBuffer)
+				println(readedSize)
+
+				fileData = append(fileData, readBuffer...)
+				if readedSize == 0 {
+					break
+				}
+			}
 
 			ioutil.WriteFile(scpPath, fileData, os.FileMode(uint32(scpPerm32)))
 			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
