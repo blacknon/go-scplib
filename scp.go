@@ -130,7 +130,6 @@ checkloop:
 		}
 
 		line = strings.TrimRight(line, "\n")
-		println(line)
 		if line == "E" {
 			pwd_array := strings.Split(pwd, "/")
 			if len(pwd_array) > 0 {
