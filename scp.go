@@ -139,10 +139,6 @@ checkloop:
 			continue
 		}
 
-		if line == "\x00" {
-			continue
-		}
-
 		line_slice := strings.SplitN(line, " ", 3)
 
 		scpType := line_slice[0][:1]
@@ -168,13 +164,17 @@ checkloop:
 			for {
 				readBuffer := make([]byte, scpSize)
 				readedSize, _ := data.Read(readBuffer)
+
+				// check readedSize
 				if readedSize == 0 {
 					break
 				}
+
 				readBuffer = readBuffer[:readedSize]
 				fileData = append(fileData, readBuffer...)
 			}
 
+			// write file to path
 			ioutil.WriteFile(scpPath, fileData[:scpSize], os.FileMode(uint32(scpPerm32)))
 			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
 
