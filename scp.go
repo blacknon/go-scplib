@@ -49,37 +49,40 @@ func walkDir(dir string) (files []string, err error) {
 
 // @brief:
 //    Write directory data.
-func pushDirData(w io.WriteCloser, baseDir string, path string, toName string, perm bool) {
+func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string, perm bool) {
 	baseDirSlice := strings.Split(baseDir, "/")
 	baseDirSlice = unset(baseDirSlice, len(baseDirSlice)-1)
 	baseDir = strings.Join(baseDirSlice, "/")
 
-	relPath, _ := filepath.Rel(baseDir, path)
-	dir := filepath.Dir(relPath)
+	for _, path := range paths {
 
-	if len(dir) > 0 && dir != "." {
-		dirList := strings.Split(dir, "/")
-		dirpath := baseDir
-		for _, dirName := range dirList {
-			dirpath = dirpath + "/" + dirName
-			dInfo, _ := os.Stat(dirpath)
-			dPerm := fmt.Sprintf("%04o", dInfo.Mode().Perm())
+		relPath, _ := filepath.Rel(baseDir, path)
+		dir := filepath.Dir(relPath)
 
-			// push directory infomation
-			fmt.Fprintln(w, "D"+dPerm, 0, dirName)
+		if len(dir) > 0 && dir != "." {
+			dirList := strings.Split(dir, "/")
+			dirpath := baseDir
+			for _, dirName := range dirList {
+				dirpath = dirpath + "/" + dirName
+				dInfo, _ := os.Stat(dirpath)
+				dPerm := fmt.Sprintf("%04o", dInfo.Mode().Perm())
+
+				// push directory infomation
+				fmt.Fprintln(w, "D"+dPerm, 0, dirName)
+			}
 		}
-	}
 
-	fInfo, _ := os.Stat(path)
+		fInfo, _ := os.Stat(path)
 
-	if !fInfo.IsDir() {
-		pushFileData(w, path, toName, perm)
-	}
+		if !fInfo.IsDir() {
+			pushFileData(w, []string{path}, toName, perm)
+		}
 
-	if len(dir) > 0 && dir != "." {
-		dirList := strings.Split(dir, "/")
-		end_str := strings.Repeat("E\n", len(dirList))
-		fmt.Fprintf(w, end_str)
+		if len(dir) > 0 && dir != "." {
+			dirList := strings.Split(dir, "/")
+			end_str := strings.Repeat("E\n", len(dirList))
+			fmt.Fprintf(w, end_str)
+		}
 	}
 	return
 }
@@ -238,11 +241,11 @@ func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 	}()
 
 	// Create scp command
-	fromPathString := []string{}
+	fromPathList := []string{}
 	for _, fromPath := range fromPaths {
-		fromPathList := append(fromPathString, "'"+fromPath+"'")
+		fromPathList = append(fromPathList, "'"+fromPath+"'")
 	}
-	fromPathString := string.Join(fromPathList, " ")
+	fromPathString := strings.Join(fromPathList, " ")
 	scpCmd := "/usr/bin/scp -fr " + fromPathString
 
 	// Run scp
@@ -284,7 +287,7 @@ func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 				// Directory
 				pList, _ := walkDir(fromPath)
 				for _, i := range pList {
-					pushDirData(w, fromPath, i, filepath.Base(i), s.Permission)
+					pushDirData(w, fromPath, []string{i}, filepath.Base(i), s.Permission)
 				}
 			} else {
 				// single files
@@ -292,7 +295,7 @@ func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 				if toFile == "." {
 					toFile = filepath.Base(fromPath)
 				}
-				pushFileData(w, fromPath, toFile, s.Permission)
+				pushFileData(w, []string{fromPath}, toFile, s.Permission)
 			}
 		}
 	}()
@@ -342,11 +345,11 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 	}()
 
 	// Create scp command
-	fromPathString := []string{}
+	fromPathList := []string{}
 	for _, fromPath := range fromPaths {
-		fromPathList := append(fromPathString, "'"+fromPath+"'")
+		fromPathList = append(fromPathList, "'"+fromPath+"'")
 	}
-	fromPathString := string.Join(fromPathList, " ")
+	fromPathString := strings.Join(fromPathList, " ")
 	scpCmd := "/usr/bin/scp -fr " + fromPathString
 
 	// Run scp
