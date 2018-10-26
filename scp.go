@@ -165,21 +165,31 @@ checkloop:
 			}
 
 			fileData := []byte{}
+			readedSize := 0
+			remainingSize := scpSize
 			for {
-				readBuffer := make([]byte, scpSize)
-				readedSize, _ := data.Read(readBuffer)
+				readBuffer := make([]byte, remainingSize)
+				readSize, _ := data.Read(readBuffer)
+
+				remainingSize -= readSize
+				readedSize += readSize
 
 				// check readedSize
-				if readedSize == 0 {
+				if readSize == 0 {
 					break
 				}
 
-				readBuffer = readBuffer[:readedSize]
+				readBuffer = readBuffer[:readSize]
 				fileData = append(fileData, readBuffer...)
+
+				if readedSize == scpSize {
+					readedSize = 0
+					break
+				}
 			}
 
 			// write file to path
-			ioutil.WriteFile(scpPath, fileData[:scpSize], os.FileMode(uint32(scpPerm32)))
+			ioutil.WriteFile(scpPath, fileData, os.FileMode(uint32(scpPerm32)))
 			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
 
 			// read last nUll character
@@ -203,7 +213,8 @@ checkloop:
 			}
 		default:
 			fmt.Fprintln(os.Stderr, line)
-			break checkloop
+			continue checkloop
+			// break checkloop
 		}
 	}
 	return
@@ -243,10 +254,10 @@ func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 	// Create scp command
 	fromPathList := []string{}
 	for _, fromPath := range fromPaths {
-		fromPathList = append(fromPathList, "'"+fromPath+"'")
+		fromPathList = append(fromPathList, fromPath)
 	}
 	fromPathString := strings.Join(fromPathList, " ")
-	scpCmd := "/usr/bin/scp -fr " + fromPathString
+	scpCmd := "/usr/bin/scp -rf " + fromPathString
 
 	// Run scp
 	err = session.Run(scpCmd)
@@ -347,7 +358,7 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 	// Create scp command
 	fromPathList := []string{}
 	for _, fromPath := range fromPaths {
-		fromPathList = append(fromPathList, "'"+fromPath+"'")
+		fromPathList = append(fromPathList, fromPath)
 	}
 	fromPathString := strings.Join(fromPathList, " ")
 	scpCmd := "/usr/bin/scp -fr " + fromPathString
@@ -358,7 +369,7 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 	<-fin
 	data = buf
 
-	return
+	return data, err
 }
 
 // @brief:
