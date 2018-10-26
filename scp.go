@@ -86,31 +86,32 @@ func pushDirData(w io.WriteCloser, baseDir string, path string, toName string, p
 
 // @brief:
 //    Exchange local file data, to scp format
-func pushFileData(w io.WriteCloser, path string, toName string, perm bool) {
-	content, err := os.Open(path)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return
+func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
+	for _, path := range paths {
+		content, err := os.Open(path)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+
+		stat, _ := content.Stat()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+
+		fInfo, _ := os.Stat(path)
+
+		fPerm := "0644"
+		if perm == true {
+			fPerm = fmt.Sprintf("%04o", fInfo.Mode())
+		}
+
+		// push file infomation
+		fmt.Fprintln(w, "C"+fPerm, stat.Size(), toName)
+		io.Copy(w, content)
+		fmt.Fprint(w, "\x00")
 	}
-
-	stat, _ := content.Stat()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return
-	}
-
-	fInfo, _ := os.Stat(path)
-
-	fPerm := "0644"
-	if perm == true {
-		fPerm = fmt.Sprintf("%04o", fInfo.Mode())
-	}
-
-	// push file infomation
-	fmt.Fprintln(w, "C"+fPerm, stat.Size(), toName)
-	io.Copy(w, content)
-	fmt.Fprint(w, "\x00")
-
 	return
 }
 
@@ -208,7 +209,7 @@ checkloop:
 // @brief:
 //    Remote to Local get file
 //    scp.GetFile("/From/Remote/Path","/To/Local/Path")
-func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
+func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 	session := s.Session
 	if s.Connection != nil {
 		session, err = s.Connection.NewSession()
@@ -237,7 +238,12 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 	}()
 
 	// Create scp command
-	scpCmd := "/usr/bin/scp -fr '" + fromPath + "'"
+	fromPathString := []string{}
+	for _, fromPath := range fromPaths {
+		fromPathList := append(fromPathString, "'"+fromPath+"'")
+	}
+	fromPathString := string.Join(fromPathList, " ")
+	scpCmd := "/usr/bin/scp -fr " + fromPathString
 
 	// Run scp
 	err = session.Run(scpCmd)
@@ -249,7 +255,7 @@ func (s *SCPClient) GetFile(fromPath string, toPath string) (err error) {
 // @brief:
 //    Local to Remote put file
 //    scp.PutFile("/From/Local/Path","/To/Remote/Path")
-func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
+func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 	session := s.Session
 	if s.Connection != nil {
 		session, _ = s.Connection.NewSession()
@@ -259,33 +265,35 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 	}
 	defer session.Close()
 
-	// Get full path
-	fromPath = getFullPath(fromPath)
-
-	// File or Dir exits check
-	pInfo, err := os.Stat(fromPath)
-	if err != nil {
-		return
-	}
-
 	// Read Dir or File
 	go func() {
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		if pInfo.IsDir() {
-			// Directory
-			pList, _ := walkDir(fromPath)
-			for _, i := range pList {
-				pushDirData(w, fromPath, i, filepath.Base(i), s.Permission)
+		for _, fromPath := range fromPaths {
+			// Get full path
+			fromPath = getFullPath(fromPath)
+
+			// File or Dir exits check
+			pInfo, err := os.Stat(fromPath)
+			if err != nil {
+				return
 			}
-		} else {
-			// single files
-			toFile := filepath.Base(toPath)
-			if toFile == "." {
-				toFile = filepath.Base(fromPath)
+
+			if pInfo.IsDir() {
+				// Directory
+				pList, _ := walkDir(fromPath)
+				for _, i := range pList {
+					pushDirData(w, fromPath, i, filepath.Base(i), s.Permission)
+				}
+			} else {
+				// single files
+				toFile := filepath.Base(toPath)
+				if toFile == "." {
+					toFile = filepath.Base(fromPath)
+				}
+				pushFileData(w, fromPath, toFile, s.Permission)
 			}
-			pushFileData(w, fromPath, toFile, s.Permission)
 		}
 	}()
 
@@ -306,7 +314,7 @@ func (s *SCPClient) PutFile(fromPath string, toPath string) (err error) {
 //    scp.GetData("/path/remote/path")
 // @return:
 //    scp format data
-func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
+func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) {
 	session := s.Session
 	if s.Connection != nil {
 		session, _ = s.Connection.NewSession()
@@ -334,7 +342,12 @@ func (s *SCPClient) GetData(fromPath string) (data *bytes.Buffer, err error) {
 	}()
 
 	// Create scp command
-	scpCmd := "/usr/bin/scp -fr '" + fromPath + "'"
+	fromPathString := []string{}
+	for _, fromPath := range fromPaths {
+		fromPathList := append(fromPathString, "'"+fromPath+"'")
+	}
+	fromPathString := string.Join(fromPathList, " ")
+	scpCmd := "/usr/bin/scp -fr " + fromPathString
 
 	// Run scp
 	err = session.Run(scpCmd)

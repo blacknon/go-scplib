@@ -50,13 +50,13 @@ func main() {
 
 	// scp get file
 	// scp.GetFile("/From/Remote/Path","/To/Local/Path")
-	err = scp.GetFile("/etc/passwd", "./passwd")
+	err = scp.GetFile([]string{"/etc/passwd"}, "./passwd")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to scp get: %s\n", err)
 		os.Exit(1)
 	}
 
-	// // Dir pattern (Snip)
+	// // Dir pattern snip // this sample comment out
 	// err := scp.GetFile("/path/from/remote/dir", "./path/to/local/dir")
 	// if err != nil {
 	// 	fmt.Fprintf(os.Stderr, "Failed to create session: %s\n", err)
@@ -65,7 +65,7 @@ func main() {
 
 	// scp put file
 	// scp.PutFile("/From/Local/Path","/To/Remote/Path")
-	err = scp.PutFile("./passwd", "./passwd_scp")
+	err = scp.PutFile([]string{"./passwd"}, "./passwd_scp")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
 		os.Exit(1)
