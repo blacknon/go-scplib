@@ -56,8 +56,8 @@ scp library for golang
         scp.Connection = connection
     
         // scp get file
-        // scp.GetFile("/From/Remote/Path","/To/Local/Path")
-        err = scp.GetFile("/etc/passwd", "./passwd")
+        // scp.GetFile([]strint{"/From/Remote/Path1","/From/Remote/Path2"],"/To/Local/Path")
+        err = scp.GetFile([]string{"/etc/passwd"}, "./passwd")
         if err != nil {
             fmt.Fprintf(os.Stderr, "Failed to scp get: %s\n", err)
             os.Exit(1)
@@ -72,7 +72,7 @@ scp library for golang
     
         // scp put file
         // scp.PutFile("/From/Local/Path","/To/Remote/Path")
-        err = scp.PutFile("./passwd", "./passwd_scp")
+        err = scp.PutFile([]string{"./passwd"}, "./passwd_scp")
         if err != nil {
             fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
             os.Exit(1)
@@ -80,7 +80,7 @@ scp library for golang
     
         // scp get file (to scp format data)
         // scp.GetData("/path/remote/path")
-        getData, err := scp.GetData("/etc/passwd")
+        getData, err := scp.GetData([]string{"/etc/passwd"})
         if err != nil {
             fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
             os.Exit(1)
