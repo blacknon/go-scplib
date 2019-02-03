@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	// "io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -160,13 +160,25 @@ checkloop:
 				scpPath = pwd + scpObjName
 			}
 
+			// set permission
 			if perm == false {
 				scpPerm32, _ = strconv.ParseUint("0644", 8, 32)
 			}
 
+			// 1st write to file
+			file, err := os.OpenFile(scpPath, os.O_WRONLY|os.O_TRUNC, os.FileMode(uint32(scpPerm32)))
+			if err != nil {
+				fmt.Println(err)
+				break checkloop
+			}
+			file.WriteString("")
+			file.Close()
+
 			fileData := []byte{}
 			readedSize := 0
 			remainingSize := scpSize
+
+			outFile, _ := os.OpenFile(scpPath, os.O_WRONLY|os.O_APPEND, os.FileMode(uint32(scpPerm32)))
 			for {
 				readBuffer := make([]byte, remainingSize)
 				readSize, _ := data.Read(readBuffer)
@@ -183,13 +195,17 @@ checkloop:
 				fileData = append(fileData, readBuffer...)
 
 				if readedSize == scpSize {
-					readedSize = 0
+					outFile.Write(fileData)
+					fileData = []byte{}
 					break
+				} else if len(fileData) >= 10485760 {
+					// write file over 10MB
+					outFile.Write(fileData)
+					fileData = []byte{}
 				}
 			}
 
 			// write file to path
-			ioutil.WriteFile(scpPath, fileData, os.FileMode(uint32(scpPerm32)))
 			os.Chmod(scpPath, os.FileMode(uint32(scpPerm32)))
 
 			// read last nUll character
