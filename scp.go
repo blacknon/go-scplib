@@ -166,7 +166,7 @@ checkloop:
 			}
 
 			// 1st write to file
-			file, err := os.OpenFile(scpPath, os.O_WRONLY|os.O_TRUNC, os.FileMode(uint32(scpPerm32)))
+			file, err := os.OpenFile(scpPath, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, os.FileMode(uint32(scpPerm32)))
 			if err != nil {
 				fmt.Println(err)
 				break checkloop
