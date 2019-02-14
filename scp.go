@@ -55,7 +55,6 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 	baseDir = strings.Join(baseDirSlice, "/")
 
 	for _, path := range paths {
-
 		relPath, _ := filepath.Rel(baseDir, path)
 		dir := filepath.Dir(relPath)
 
@@ -64,7 +63,7 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 			dirpath := baseDir
 			for _, dirName := range dirList {
 				dirpath = dirpath + "/" + dirName
-				dInfo, _ := os.Stat(dirpath)
+				dInfo, _ := os.Lstat(dirpath)
 				dPerm := fmt.Sprintf("%04o", dInfo.Mode().Perm())
 
 				// push directory infomation
@@ -72,10 +71,15 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 			}
 		}
 
-		fInfo, _ := os.Stat(path)
+		fInfo, _ := os.Lstat(path)
 
 		if !fInfo.IsDir() {
-			pushFileData(w, []string{path}, toName, perm)
+			// check symlink
+			if fInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+				fmt.Fprintf(os.Stderr, "'%v' is Symlink, Do not copy.\n", path)
+			} else {
+				pushFileData(w, []string{path}, toName, perm)
+			}
 		}
 
 		if len(dir) > 0 && dir != "." {
@@ -91,19 +95,19 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 //    Exchange local file data, to scp format
 func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
 	for _, path := range paths {
+		fInfo, _ := os.Lstat(path)
+
 		content, err := os.Open(path)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
-			return
+			continue
 		}
 
 		stat, _ := content.Stat()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
-			return
+			continue
 		}
-
-		fInfo, _ := os.Stat(path)
 
 		fPerm := "0644"
 		if perm == true {
@@ -305,7 +309,7 @@ func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 			fromPath = getFullPath(fromPath)
 
 			// File or Dir exits check
-			pInfo, err := os.Stat(fromPath)
+			pInfo, err := os.Lstat(fromPath)
 			if err != nil {
 				return
 			}
