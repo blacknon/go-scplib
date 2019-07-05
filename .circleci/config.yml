@@ -26,11 +26,14 @@ jobs:
               --network=mynet
               --name=sshd
               -v ${PWD}/.docker/.ssh:/root/.ssh
-              --rm -p 50022:22
+              --rm
               rastasheep/ubuntu-sshd:18.04
       - run:
           name: Create symbolic link
           command: ln -s ${PWD}/.docker/.ssh ${PWD}/.ssh
+      - run:
+          name: scp test
+          command: example/example
     environment:
       GO111MODULE: "on"
 workflows:
