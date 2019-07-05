@@ -183,25 +183,11 @@ func ExampleSCPClient_PutData() {
 
 // Test GetFile in CricleCI
 func TestCircleCIGetFile(t *testing.T) {
-	// Read Private key
-	key, err := ioutil.ReadFile(".docker/.ssh/id_rsa")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to read private key: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Parse Private key
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to parse private key: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Create ssh client config
 	config := &ssh.ClientConfig{
 		User: "root",
 		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
+			ssh.Password("root"),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         60 * time.Second,
