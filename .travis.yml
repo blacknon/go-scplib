@@ -26,5 +26,5 @@ before_install:
 script:
   - go build -o example/example example/example.go
   - ls -la
-  - ssh -o -v 'StrictHostKeyChecking no' -i .docker/.ssh/id_rsa -p 50022 root@127.0.0.1 hostname
-  - go test -v CircleCI
+  - ssh -v -o 'StrictHostKeyChecking no' -i .docker/.ssh/id_rsa -p 50022 root@127.0.0.1 hostname
+  - go test -run CircleCI
