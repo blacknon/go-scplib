@@ -26,7 +26,7 @@ jobs:
               rastasheep/ubuntu-sshd:18.04
       - run:
           name: Test ssh
-          command: ssh -i .docker/.ssh/id_rsa -p 50022 remote-docker hostname
+          command: ssh -i .docker/.ssh/id_rsa -p 50022 root@localhost hostname
       - run:
           name: Test scp
           command: go test --run CircleCI
