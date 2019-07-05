@@ -208,9 +208,124 @@ func TestCircleCIGetFile(t *testing.T) {
 
 	// scp get file
 	// scp.GetFile("/From/Remote/Path","/To/Local/Path")
-	err = scp.GetFile([]string{"/etc/passwd"}, "./passwd")
+	err = scp.GetFile([]string{"/etc/passwd"}, "./passwd_1")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to scp get: %s\n", err)
 		os.Exit(1)
 	}
+}
+
+// Test GetFile in CricleCI
+func TestCircleCIPutFile(t *testing.T) {
+	// Create ssh client config
+	config := &ssh.ClientConfig{
+		User: "root",
+		Auth: []ssh.AuthMethod{
+			ssh.Password("root"),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         60 * time.Second,
+	}
+
+	// Create ssh connection
+	connection, err := ssh.Dial("tcp", "localhost:50022", config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to dial: %s\n", err)
+		os.Exit(1)
+	}
+	defer connection.Close()
+
+	// Create scp client
+	scp := new(scplib.SCPClient)
+	scp.Permission = false // copy permission with scp flag
+	scp.Connection = connection
+
+	// Put ./passwd to remote machine `./passwd_2`
+	err = scp.PutFile([]string{"./passwd"}, "./passwd_2")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
+		os.Exit(1)
+	}
+
+	// show ./passwd_2
+	session, _ := connection.NewSession()
+	session.Run("cat ./passwd_2")
+}
+
+// Test GetFile in CricleCI
+func TestCircleCIGetData(t *testing.T) {
+	// Create ssh client config
+	config := &ssh.ClientConfig{
+		User: "root",
+		Auth: []ssh.AuthMethod{
+			ssh.Password("root"),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         60 * time.Second,
+	}
+
+	// Create ssh connection
+	connection, err := ssh.Dial("tcp", "localhost:50022", config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to dial: %s\n", err)
+		os.Exit(1)
+	}
+	defer connection.Close()
+
+	// Create scp client
+	scp := new(scplib.SCPClient)
+	scp.Permission = false // copy permission with scp flag
+	scp.Connection = connection
+
+	// Get /etc/passwd from remote machine
+	getData, err := scp.GetData([]string{"/etc/passwd"})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
+		os.Exit(1)
+	}
+
+	// println getData
+	fmt.Println(getData)
+}
+
+func TestCircleCIPutData(t *testing.T) {
+	// Create ssh client config
+	config := &ssh.ClientConfig{
+		User: "root",
+		Auth: []ssh.AuthMethod{
+			ssh.Password("root"),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         60 * time.Second,
+	}
+
+	// Create ssh connection
+	connection, err := ssh.Dial("tcp", "localhost:50022", config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to dial: %s\n", err)
+		os.Exit(1)
+	}
+	defer connection.Close()
+
+	// Create scp client
+	scp := new(scplib.SCPClient)
+	scp.Permission = false // copy permission with scp flag
+	scp.Connection = connection
+
+	// Get /etc/passwd from remote machine
+	getData, err := scp.GetData([]string{"/etc/passwd"})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
+		os.Exit(1)
+	}
+
+	// Put getData
+	err = scp.PutData(getData, "./passwd_4")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
+		os.Exit(1)
+	}
+
+	session, _ := connection.NewSession()
+	session.Run("cat ./passwd_4")
 }
