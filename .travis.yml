@@ -24,4 +24,4 @@ script:
   - go build -o example/example example/example.go
   - ls -la
   - go test -run CircleCI
-  - cat ./passwd
+  - cat ./passwd_1
