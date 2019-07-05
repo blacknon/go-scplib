@@ -3,13 +3,12 @@ version: 2.1
 jobs:
   build-go-latest:
     machine:
-      image: circleci/classic
+      image: circleci/golang:1.11
     working_directory: /go/src/github.com/blacknon/go-scplib
     steps:
       - checkout
-
-      # - setup_remote_docker:
-      #     docker_layer_caching: true
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: start go mod init
           command: go mod init
@@ -17,20 +16,14 @@ jobs:
           name: build example/example.go
           command: go build -o example/example example/example.go
       - run:
-          name: Setup Docker network
-          command: docker network create mynet
-      - run:
           name: Start Docker SSH server
           command:
             docker run -d
-              --network=mynet
+              --network=default
               --name=sshd
               -v ${PWD}/.docker/.ssh:/root/.ssh
               --rm -p 50022:22
               rastasheep/ubuntu-sshd:18.04
-      - run:
-          name: Create symbolic link
-          command: ln -s ${PWD}/.docker/.ssh ${PWD}/.ssh
       - run:
           name: Test ssh
           command: ssh -i .docker/.ssh/id_rsa -p 50022 remote-docker hostname
