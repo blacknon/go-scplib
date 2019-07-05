@@ -1,3 +1,6 @@
+/*
+Package go-scplib is a library for exchanging data with scp in golang.
+*/
 package scplib
 
 import (
@@ -5,7 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	// "io/ioutil"
+
 	"os"
 	"os/user"
 	"path/filepath"
@@ -47,8 +50,7 @@ func walkDir(dir string) (files []string, err error) {
 	return
 }
 
-// @brief:
-//    Write directory data.
+// pushDirData is Write directory data to remote.
 func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string, perm bool) {
 	baseDirSlice := strings.Split(baseDir, "/")
 	baseDirSlice = unset(baseDirSlice, len(baseDirSlice)-1)
@@ -91,8 +93,7 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 	return
 }
 
-// @brief:
-//    Exchange local file data, to scp format
+// pushFileData is exchange local file data, to scp format
 func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
 	for _, path := range paths {
 		fInfo, _ := os.Lstat(path)
@@ -122,8 +123,7 @@ func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
 	return
 }
 
-// @brief:
-//    Write to local file, from scp data.
+// writeData is write to local file, from scp data.
 func writeData(data *bufio.Reader, path string, perm bool) {
 	pwd := path
 checkloop:
@@ -240,8 +240,9 @@ checkloop:
 	return
 }
 
-// @brief:
-//    Remote to Local get file
+// GetFile get file data to file (remote to Local).
+//
+// example:
 //    scp.GetFile("/From/Remote/Path","/To/Local/Path")
 func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 	session := s.Session
@@ -286,8 +287,9 @@ func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 	return
 }
 
-// @brief:
-//    Local to Remote put file
+// PutFile is put file to remote path.
+//
+// example:
 //    scp.PutFile("/From/Local/Path","/To/Remote/Path")
 func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 	session := s.Session
@@ -343,11 +345,10 @@ func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 	return
 }
 
-// @brief:
-//    Remote to Local get data
+// GetData get and return scp format data(remote to local).
+//
+// example:
 //    scp.GetData("/path/remote/path")
-// @return:
-//    scp format data
 func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) {
 	session := s.Session
 	if s.Connection != nil {
@@ -392,9 +393,10 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 	return data, err
 }
 
-// @brief:
-//    Local to Remote put data
-//    scp.PutData("scp format data","/path/remote/path")
+// PutData put data of scp format as a file(local to remote).
+//
+// example:
+//    scp.PutData(buffer(scp format data),"/path/remote/path")
 func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 	session := s.Session
 	if s.Connection != nil {

@@ -73,7 +73,7 @@ func main() {
 
 	// scp get file (to scp format data)
 	// scp.GetData("/path/remote/path")
-	getData, err := scp.GetData("/etc/passwd")
+	getData, err := scp.GetData([]string{"/etc/passwd"})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
 		os.Exit(1)
