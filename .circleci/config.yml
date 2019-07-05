@@ -2,7 +2,7 @@ version: 2.1
 
 jobs:
   build-go-latest:
-    machine:
+    docker:
       image: circleci/golang:1.11
     working_directory: /go/src/github.com/blacknon/go-scplib
     steps:
