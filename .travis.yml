@@ -5,6 +5,9 @@ language: go
 env:
   - GO111MODULE=on
 
+services:
+  - docker
+
 go:
   - 1.12.x
 
@@ -14,5 +17,9 @@ git:
 notifications:
   email: false
 
+before_install:
+- docker run --rm -p 50022:22 -v ${PWD}/.docker/.ssh:/root/.ssh rastasheep/ubuntu-sshd
+
 script:
   - go build -o example/example example/example.go
+  - ssh -i .docker/.ssh/id_rsa -p 50022 root@127.0.0.1 hostname
