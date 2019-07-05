@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   build-go-latest:
     machine:
-      image: circleci/golang:1.11
+      image: circleci/classic
     working_directory: /go/src/github.com/blacknon/go-scplib
     steps:
       - checkout
