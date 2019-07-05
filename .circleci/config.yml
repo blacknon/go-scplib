@@ -25,7 +25,6 @@ jobs:
             docker run -d \
               --network=mynet \
               --name=sshd \
-              --rm -p 50022:22 \
               rastasheep/ubuntu-sshd:18.04
       # - run:
       #     name:
