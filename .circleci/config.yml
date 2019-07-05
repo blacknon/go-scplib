@@ -33,7 +33,7 @@ jobs:
           command: ln -s ${PWD}/.docker/.ssh ${PWD}/.ssh
       - run:
           name: Test ssh
-          command: ssh -i .docker/id_rsa -p 50022 root@localhost hostname
+          command: ssh -i .docker/.ssh/id_rsa -p 50022 root@localhost hostname
       - run:
           name: Test scp
           command: go test --run CircleCI
