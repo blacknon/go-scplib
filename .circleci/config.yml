@@ -2,14 +2,15 @@ version: 2.1
 
 jobs:
   build-go-latest:
+    machine: true
     docker:
       - image: circleci/golang:1.11
     working_directory: /go/src/github.com/blacknon/go-scplib
     steps:
       - checkout
 
-      # - setup_remote_docker:
-      #     docker_layer_caching: true
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: start go mod init
           command: go mod init
