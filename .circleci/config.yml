@@ -22,9 +22,9 @@ jobs:
       - run:
           name: Start Docker SSH server
           command:
-            docker run -d \
-              --network=mynet \
-              --name=sshd \
+            docker run -d
+              --network=mynet
+              --name=sshd
               rastasheep/ubuntu-sshd:18.04
       # - run:
       #     name:
