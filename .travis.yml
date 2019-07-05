@@ -20,6 +20,8 @@ notifications:
 before_install:
 - docker run --name test_sshd -d --rm -p 50022:22 -v ${PWD}/.docker/.ssh:/root/.ssh rastasheep/ubuntu-sshd
 - docker exec test_sshd chown root:root /root/.ssh/authorized_keys
+- docker exec test_sshd chmod 700 /root/.ssh
+- docker exec test_sshd chmod 600 /root/.ssh/authorized_keys
 
 script:
   - go build -o example/example example/example.go
