@@ -110,6 +110,7 @@ func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
 			continue
 		}
 
+		// default permission(0644)
 		fPerm := "0644"
 		if perm == true {
 			fPerm = fmt.Sprintf("%04o", fInfo.Mode())
@@ -259,7 +260,7 @@ func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		// Null Characters(100,000)
+		// Null Characters(10,000 char)
 		nc := strings.Repeat("\x00", 100000)
 		fmt.Fprintf(w, nc)
 	}()
@@ -278,6 +279,7 @@ func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 		fromPathList = append(fromPathList, fromPath)
 	}
 	fromPathString := strings.Join(fromPathList, " ")
+	// TODO(blacknon): scpしてる時点でセキュリティもクソもないのだが、OS Command Injectionへの対策を考える
 	scpCmd := "/usr/bin/scp -rf " + fromPathString
 
 	// Run scp
@@ -334,6 +336,7 @@ func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 	}()
 
 	// Create scp command
+	// TODO(blacknon): scpしてる時点でセキュリティもクソもないのだが、OS Command Injectionへの対策を考える
 	scpCmd := "/usr/bin/scp -tr '" + toPath + "'"
 	if s.Permission == true {
 		scpCmd = "/usr/bin/scp -ptr '" + toPath + "'"
@@ -364,7 +367,7 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		// Null Characters(10,000)
+		// Null Characters(10,000 char)
 		nc := strings.Repeat("\x00", 100000)
 		fmt.Fprintf(w, nc)
 	}()
@@ -382,6 +385,7 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 		fromPathList = append(fromPathList, fromPath)
 	}
 	fromPathString := strings.Join(fromPathList, " ")
+	// TODO(blacknon): scpしてる時点でセキュリティもクソもないのだが、OS Command Injectionへの対策を考える
 	scpCmd := "/usr/bin/scp -fr " + fromPathString
 
 	// Run scp
@@ -416,6 +420,7 @@ func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 	}()
 
 	// Create scp command
+	// TODO(blacknon): scpしてる時点でセキュリティもクソもないのだが、OS Command Injectionへの対策を考える
 	scpCmd := "/usr/bin/scp -tr '" + toPath + "'"
 	if s.Permission == true {
 		scpCmd = "/usr/bin/scp -ptr '" + toPath + "'"

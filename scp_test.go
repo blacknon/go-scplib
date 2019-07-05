@@ -73,7 +73,7 @@ func Example() {
 
 	// scp get file (to scp format data)
 	// scp.GetData("/path/remote/path")
-	getData, err := scp.GetData("/etc/passwd")
+	getData, err := scp.GetData([]string{"/etc/passwd"})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
 		os.Exit(1)
@@ -91,13 +91,15 @@ func Example() {
 }
 
 func ExampleSCPClient_GetFile() {
+	var connection *ssh.Client
+
 	// Create scp client
 	scp := new(scplib.SCPClient)
 	scp.Permission = false      // copy permission with scp flag
 	scp.Connection = connection // *ssh.Client
 
 	// Get /etc/passwd from remote machine, and copy to ./passwd
-	err = scp.GetFile([]string{"/etc/passwd"}, "./passwd")
+	err := scp.GetFile([]string{"/etc/passwd"}, "./passwd")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to scp get: %s\n", err)
 		os.Exit(1)
@@ -105,13 +107,15 @@ func ExampleSCPClient_GetFile() {
 }
 
 func ExampleSCPClient_PutFile() {
+	var connection *ssh.Client
+
 	// Create scp client
 	scp := new(scplib.SCPClient)
 	scp.Permission = false      // copy permission with scp flag
 	scp.Connection = connection // *ssh.Client
 
 	// Put ./passwd to remote machine `./passwd_scp`
-	err = scp.PutFile([]string{"./passwd"}, "./passwd_scp")
+	err := scp.PutFile([]string{"./passwd"}, "./passwd_scp")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
 		os.Exit(1)
@@ -119,6 +123,8 @@ func ExampleSCPClient_PutFile() {
 }
 
 func ExampleSCPClient_GetData() {
+	var connection *ssh.Client
+
 	// Create scp client
 	scp := new(scplib.SCPClient)
 	scp.Permission = false      // copy permission with scp flag
@@ -144,6 +150,8 @@ func ExampleSCPClient_GetData() {
 }
 
 func ExampleSCPClient_PutData() {
+	var connection *ssh.Client
+
 	// Create scp client
 	scp := new(scplib.SCPClient)
 	scp.Permission = false      // copy permission with scp flag
