@@ -1,9 +1,16 @@
 version: 2.1
 
-orbs:
-  welcome: circleci/welcome-orb@0.3.1
-
+jobs:
+  build-go-latest:
+    docker:
+      - image: golang:latest
+    working_directory: /go/src/github.com/blacknon/go-scplib
+    steps:
+      - checkout
+      - run: go get -u
+      -
 workflows:
-  Welcome:
+  version: 2
+  build:
     jobs:
-      - welcome/run
+      - build-go-latest

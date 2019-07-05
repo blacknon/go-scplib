@@ -1,7 +1,13 @@
 go-scplib
 ====
 
+[![GoDoc](https://godoc.org/github.com/blacknon/go-scplib?status.svg)](https://godoc.org/github.com/blacknon/go-scplib) 
+
 scp library for golang
+
+## Usage
+
+[See GoDoc reference.](https://godoc.org/github.com/blacknon/go-scplib)
 
 ## Example
 
