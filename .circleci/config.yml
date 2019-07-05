@@ -7,6 +7,9 @@ jobs:
     working_directory: /go/src/github.com/blacknon/go-scplib
     steps:
       - checkout
+      - environment:
+          GO111MODULE:on
+      - run: go mod init
       - run: go build example/example.go
 workflows:
   version: 2
