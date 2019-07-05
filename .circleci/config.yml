@@ -26,7 +26,7 @@ jobs:
               --network=mynet
               --name=sshd
               -v ${PWD}/.docker/.ssh:/root/.ssh
-              --rm
+              --rm -p 50022:22
               rastasheep/ubuntu-sshd:18.04
       - run:
           name: Create symbolic link
@@ -35,8 +35,8 @@ jobs:
           name: Set hosts
           command: echo 127.0.0.1 test-node | sudo tee -a /etc/hosts
       - run:
-          name: Scp test
-          command: example/example
+          name: Test scp
+          command: go test --run CircleCI
     environment:
       GO111MODULE: "on"
 workflows:
