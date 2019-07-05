@@ -1,13 +1,16 @@
 dist: xenial
 
 language: go
+
 env:
   - GO111MODULE=on
-  - GOFLAGS='-mod vendor'
+
 go:
   - 1.12.x
+
 git:
   depth: 1
+
 notifications:
   email: false
 
