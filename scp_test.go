@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/blacknon/go-scplib"
@@ -176,6 +177,54 @@ func ExampleSCPClient_PutData() {
 	err = scp.PutData(getData, "./passwd_data")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to scp put: %s\n", err)
+		os.Exit(1)
+	}
+}
+
+// Test GetFile in CricleCI
+func TestCircleCIGetFile(t *testing.T) {
+	// Read Private key
+	key, err := ioutil.ReadFile("/.ssh/id_rsa")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to read private key: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Parse Private key
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse private key: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create ssh client config
+	config := &ssh.ClientConfig{
+		User: "root",
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         60 * time.Second,
+	}
+
+	// Create ssh connection
+	connection, err := ssh.Dial("tcp", "test-node:50022", config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to dial: %s\n", err)
+		os.Exit(1)
+	}
+	defer connection.Close()
+
+	// Create scp client
+	scp := new(scplib.SCPClient)
+	scp.Permission = false // copy permission with scp flag
+	scp.Connection = connection
+
+	// scp get file
+	// scp.GetFile("/From/Remote/Path","/To/Local/Path")
+	err = scp.GetFile([]string{"/etc/passwd"}, "./passwd")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to scp get: %s\n", err)
 		os.Exit(1)
 	}
 }

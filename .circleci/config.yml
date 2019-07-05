@@ -35,7 +35,7 @@ jobs:
           name: Set hosts
           command: echo 127.0.0.1 test-node | sudo tee -a /etc/hosts
       - run:
-          name: scp test
+          name: Scp test
           command: example/example
     environment:
       GO111MODULE: "on"
