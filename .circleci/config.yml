@@ -8,8 +8,8 @@ jobs:
     steps:
       - checkout
 
-      - setup_remote_docker:
-          docker_layer_caching: true
+      # - setup_remote_docker:
+      #     docker_layer_caching: true
       - run:
           name: start go mod init
           command: go mod init
@@ -33,7 +33,7 @@ jobs:
           command: ln -s ${PWD}/.docker/.ssh ${PWD}/.ssh
       - run:
           name: Test ssh
-          command: ssh -i .docker/.ssh/id_rsa -p 50022 root@127.0.0.1 hostname
+          command: ssh -i .docker/.ssh/id_rsa -p 50022 remote-docker hostname
       - run:
           name: Test scp
           command: go test --run CircleCI
