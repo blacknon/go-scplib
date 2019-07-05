@@ -8,7 +8,6 @@ jobs:
     steps:
       - checkout
       - run: go get -u
-      -
 workflows:
   version: 2
   build:
