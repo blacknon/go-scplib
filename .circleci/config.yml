@@ -32,8 +32,8 @@ jobs:
           name: Create symbolic link
           command: ln -s ${PWD}/.docker/.ssh ${PWD}/.ssh
       - run:
-          name: Set hosts
-          command: echo 127.0.0.1 test-node | sudo tee -a /etc/hosts
+          name: Test ssh
+          command: ssh -i .docker/id_rsa -p 50022 root@localhost hostname
       - run:
           name: Test scp
           command: go test --run CircleCI

@@ -184,7 +184,7 @@ func ExampleSCPClient_PutData() {
 // Test GetFile in CricleCI
 func TestCircleCIGetFile(t *testing.T) {
 	// Read Private key
-	key, err := ioutil.ReadFile(".ssh/id_rsa")
+	key, err := ioutil.ReadFile(".docker/.ssh/id_rsa")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to read private key: %v\n", err)
 		os.Exit(1)
@@ -208,7 +208,7 @@ func TestCircleCIGetFile(t *testing.T) {
 	}
 
 	// Create ssh connection
-	connection, err := ssh.Dial("tcp", "test-node:50022", config)
+	connection, err := ssh.Dial("tcp", "localhost:50022", config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to dial: %s\n", err)
 		os.Exit(1)
