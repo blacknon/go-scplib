@@ -184,7 +184,7 @@ func ExampleSCPClient_PutData() {
 // Test GetFile in CricleCI
 func TestCircleCIGetFile(t *testing.T) {
 	// Read Private key
-	key, err := ioutil.ReadFile("/.ssh/id_rsa")
+	key, err := ioutil.ReadFile(".ssh/id_rsa")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to read private key: %v\n", err)
 		os.Exit(1)
