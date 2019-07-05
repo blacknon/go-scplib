@@ -18,7 +18,7 @@ notifications:
   email: false
 
 before_install:
-- docker -d run --rm -p 50022:22 -v ${PWD}/.docker/.ssh:/root/.ssh rastasheep/ubuntu-sshd
+- docker run -d --rm -p 50022:22 -v ${PWD}/.docker/.ssh:/root/.ssh rastasheep/ubuntu-sshd
 
 script:
   - go build -o example/example example/example.go
