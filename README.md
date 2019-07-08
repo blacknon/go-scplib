@@ -10,6 +10,10 @@ scp library for golang
 
 [See GoDoc reference.](https://godoc.org/github.com/blacknon/go-scplib)
 
+## Projects using go-scplib
+
+* [blacknon/lssh : List selection type alternative ssh/scp client.Pure Go.](https://github.com/blacknon/lssh)
+
 ## Example
 
     package main
