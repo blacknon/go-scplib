@@ -68,7 +68,7 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 				dInfo, _ := os.Lstat(dirpath)
 				dPerm := fmt.Sprintf("%04o", dInfo.Mode().Perm())
 
-				// push directory infomation
+				// push directory information
 				fmt.Fprintln(w, "D"+dPerm, 0, dirName)
 			}
 		}
@@ -116,7 +116,7 @@ func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
 			fPerm = fmt.Sprintf("%04o", fInfo.Mode())
 		}
 
-		// push file infomation
+		// push file information
 		fmt.Fprintln(w, "C"+fPerm, stat.Size(), toName)
 		io.Copy(w, content)
 		fmt.Fprint(w, "\x00")
@@ -129,7 +129,7 @@ func writeData(data *bufio.Reader, path string, perm bool) {
 	pwd := path
 checkloop:
 	for {
-		// Get file or dir infomation (1st line)
+		// Get file or dir information (1st line)
 		line, err := data.ReadString('\n')
 
 		if err == io.EOF {

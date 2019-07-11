@@ -3,6 +3,7 @@ go-scplib
 
 [![GoDoc](https://godoc.org/github.com/blacknon/go-scplib?status.svg)](https://godoc.org/github.com/blacknon/go-scplib)
 [![TravisCI](https://travis-ci.org/blacknon/go-scplib.svg?branch=master)](https://travis-ci.org/blacknon/go-scplib)
+[![Go Report Card](https://goreportcard.com/badge/github.com/blacknon/go-scplib)](https://goreportcard.com/report/github.com/blacknon/go-scplib)
 
 scp library for golang
 
