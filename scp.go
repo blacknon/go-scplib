@@ -1,5 +1,5 @@
 /*
-Package go-scplib is a library for exchanging data with scp in golang.
+Package scplib is a library for exchanging data with scp in golang.
 */
 package scplib
 
@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// SCPClient save credentials and use scp from method.
 type SCPClient struct {
 	Connection *ssh.Client
 	Session    *ssh.Session
@@ -86,8 +87,8 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 
 		if len(dir) > 0 && dir != "." {
 			dirList := strings.Split(dir, "/")
-			end_str := strings.Repeat("E\n", len(dirList))
-			fmt.Fprintf(w, end_str)
+			endStr := strings.Repeat("E\n", len(dirList))
+			fmt.Fprintf(w, endStr)
 		}
 	}
 	return
@@ -140,21 +141,21 @@ checkloop:
 
 		line = strings.TrimRight(line, "\n")
 		if line == "E" {
-			pwd_array := strings.Split(pwd, "/")
-			if len(pwd_array) > 0 {
-				pwd_array = pwd_array[:len(pwd_array)-2]
+			pwdArray := strings.Split(pwd, "/")
+			if len(pwdArray) > 0 {
+				pwdArray = pwdArray[:len(pwdArray)-2]
 			}
-			pwd = strings.Join(pwd_array, "/") + "/"
+			pwd = strings.Join(pwdArray, "/") + "/"
 			continue
 		}
 
-		line_slice := strings.SplitN(line, " ", 3)
+		lineSlice := strings.SplitN(line, " ", 3)
 
-		scpType := line_slice[0][:1]
-		scpPerm := line_slice[0][1:]
+		scpType := lineSlice[0][:1]
+		scpPerm := lineSlice[0][1:]
 		scpPerm32, _ := strconv.ParseUint(scpPerm, 8, 32)
-		scpSize, _ := strconv.Atoi(line_slice[1])
-		scpObjName := line_slice[2]
+		scpSize, _ := strconv.Atoi(lineSlice[1])
+		scpObjName := lineSlice[2]
 
 		switch {
 		case scpType == "C":
