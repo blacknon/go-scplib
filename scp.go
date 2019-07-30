@@ -19,6 +19,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// TODO(blacknon): bufferを可能な限り使わないようにして、io.Pipeなどを利用したReader/Writerでの対応を主流とする
+
 type SCPClient struct {
 	Connection *ssh.Client
 	Session    *ssh.Session
